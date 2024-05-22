@@ -24,18 +24,13 @@ def normalize(data: list[dict[str, int]]) -> tuple[list[float], list[float]]:
         new_price: float = value["price"] - min_price / gap_price
         normalized_price.append(new_price)
         # new_data.append({"km": new_km, "price": new_price})
-
     return normalized_km, normalized_price
 
 
 if __name__ == "__main__":
     try:
-        assert (
-            len(sys.argv) == 2
-        ), "You need to enter the path of your data file!"
-        assert os.path.isfile(
-            sys.argv[1]
-        ), "There is a problem with you file path..."
+        assert len(sys.argv) == 2, "You need to enter the path of your data file!"
+        assert os.path.isfile(sys.argv[1]), "There is a problem with you file path..."
         with open(sys.argv[1], "r") as csvfile:
             read_content = csv.reader(csvfile, delimiter=",")
             next(read_content)
