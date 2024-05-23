@@ -1,49 +1,24 @@
-import sys
-import os
-import csv
+import json
+
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import Any
+
+from predict import model
+from utils import get_datas, find_scale, normalize, set_factors
 
 
-def normalize(data: list[dict[str, int]]) -> tuple[list[float], list[float]]:
-    """Normalize datas"""
-    min_km = min(row["km"] for row in data)
-    max_km = max(row["km"] for row in data)
-    gap_km = max_km - min_km
-    min_price = min(row["price"] for row in data)
-    max_price = max(row["price"] for row in data)
-    gap_price = max_price - min_price
-    # print(min_km, max_km)
-    # print(min_price, max_price)
-
-    normalized_km: list[float] = []
-    normalized_price: list[float] = []
-    # new_data: list[dict[str, float]] = []
-    for value in data:
-        new_km: float = (value["km"] - min_km) / gap_km
-        normalized_km.append(new_km)
-        new_price: float = (value["price"] - min_price) / gap_price
-        normalized_price.append(new_price)
-        # new_data.append({"km": new_km, "price": new_price})
-    return normalized_km, normalized_price
-
-
-def model(
-    factors: np.ndarray[np.float64, np.float64], thetas: np.ndarray[np.float64]
-) -> np.ndarray[np.float64]:
-    """Model"""
-    return factors.dot(thetas)
-
-
-def cost_function(predictions, prices) -> tuple[float, np.ndarray[np.float64]]:
+def cost_function(
+    predictions: np.ndarray[np.float64], prices: np.ndarray[np.float64]
+) -> float:
     """Sum of all errors divided by number of data"""
-    return sum(np.power(np.subtract(predictions, prices), 2)) / (
-        2 * len(prices)
-    )
+    return sum(np.power(np.subtract(predictions, prices), 2)) / (2 * len(prices))
 
 
-def find_gradients(predictions, prices, factors) -> tuple[float, float]:
+def find_gradients(
+    predictions: np.ndarray[np.float64],
+    prices: np.ndarray[np.float64],
+    factors: np.ndarray[np.float64, np.float64],
+) -> np.ndarray[np.float64]:
     """Find gradients with partial differential of thetas"""
     factors_transposed = np.transpose(factors)
     gradients = factors_transposed.dot(np.subtract(predictions, prices))
@@ -51,56 +26,80 @@ def find_gradients(predictions, prices, factors) -> tuple[float, float]:
     return gradients / len(prices)
 
 
-def gradient_descent_algorithm(thetas, gradients, learning_rate: float):
+def gradient_descent_algorithm(
+    thetas: np.ndarray[np.float64],
+    gradients: np.ndarray[np.float64],
+    learning_rate: float,
+) -> np.ndarray[np.float64]:
     """Gradient Descent algorithm"""
-    new_thetas = np.subtract(thetas, np.multiply(gradients, learning_rate))
-    print(new_thetas)
+    return np.subtract(thetas, np.multiply(gradients, learning_rate))
+
+
+def training(
+    axes,
+    factors: np.ndarray[np.float64, np.float64],
+    thetas: np.ndarray[np.float64],
+    prices: np.ndarray[np.float64],
+    learning_rate: float,
+) -> tuple[np.ndarray[np.float64], np.ndarray[np.float64]]:
+    """Training"""
+    cost_history: list[float] = []
+    thetas_history: list[np.ndarray[np.float64]] = []
+
+    for i in range(200):
+        thetas_history.append(thetas)
+        m_predictions = model(factors, thetas)
+        cost_history.append(cost_function(m_predictions, prices))
+        # last_two = cost_history[-2:]
+        # if len(last_two) > 1 and last_two[0] - last_two[1] < 10**-6:
+        #     break
+        gradients = find_gradients(m_predictions, prices, factors)
+        thetas = gradient_descent_algorithm(thetas, gradients, learning_rate)
+
+    axes[1].plot(list(range(i + 1)), cost_history, color="red")
+    axes[1].set_xlabel("Iterations")
+    axes[1].set_ylabel("Mean Squared Error")
+    axes[1].set_title("Cost function")
+
+    return m_predictions, thetas
 
 
 if __name__ == "__main__":
     try:
-        assert len(sys.argv) == 2, "You need to enter the path of your data file!"
-        assert os.path.isfile(sys.argv[1]), "There is a problem with you file path..."
-        with open(sys.argv[1], "r") as csvfile:
-            read_content = csv.reader(csvfile, delimiter=",")
-            next(read_content)
-            data: list[dict[str, int]] = []
-            for km, price in read_content:
-                data.append({"km": int(km), "price": int(price)})
-        normalized_km, normalized_price = normalize(data)
+        mileages, prices = get_datas("data.csv")
 
-        # thetas: np.ndarray[np.float64] = np.random.rand(2, 1)
-        thetas = np.zeros((2, 1))
-        a = np.array(normalized_km)[:, np.newaxis]
-        b = np.ones((len(normalized_km), 1))
-        factors: np.ndarray[np.float64, np.float64] = np.hstack((a, b))
-        predictions = model(factors, thetas)
-
-        prices = np.array(normalized_price)[:, np.newaxis]
-        cost = cost_function(predictions, prices)
-        print(f"Cost: {cost}")
-
-        gradients = find_gradients(predictions, prices, factors)
-        print(f"Gradients: {gradients}")
-
-        gradient_descent_algorithm(thetas, gradients, 2.0)
-
-        plt.rcParams["figure.figsize"] = [12, 6]
+        plt.rcParams["figure.figsize"] = [18, 6]
         fig, axes = plt.subplots(nrows=1, ncols=2)
-        # axes = plt.axes()
-        # axes.grid()
         axes[0].grid()
-        axes[0].scatter(normalized_price, normalized_km, color="blue")
-        axes[0].plot(predictions, normalized_km, color="red")
-        axes[0].set_xlabel("Price")
-        axes[0].set_ylabel("Mileage")
-        axes[0].set_title("Predictions with datas")
+        axes[1].grid()
+
+        min_mileage, range_mileage = find_scale(mileages)
+        print(min_mileage, range_mileage)
+        min_price, range_price = find_scale(prices)
+        print(min_price, range_price)
+        norm_mileages = [normalize(m, min_mileage, range_mileage) for m in mileages]
+        norm_prices = [normalize(n, min_price, range_price) for n in prices]
+
+        m_factors = set_factors(norm_mileages)
+        m_thetas = np.zeros((2, 1))
+        m_norm_prices = np.array(norm_prices)[:, np.newaxis]
+        m_predictions, thetas = training(axes, m_factors, m_thetas, m_norm_prices, 0.7)
+
+        with open("thetas.json", "w") as file:
+            json.dump([thetas[0].item(), thetas[1].item()], file)
+
+        axes[0].scatter(norm_mileages, norm_prices, color="blue")
+        axes[0].plot(norm_mileages, m_predictions, color="red")
+        axes[0].set_xlabel("Mileage")
+        axes[0].set_ylabel("Price")
+        axes[0].set_title("Predictions with norm datas")
         axes[0].legend(["Datas", "Predictions"])  # loc="lower right"
+
         plt.show()
 
     except AssertionError as msg:
         print(msg)
-    except ValueError:
-        print("There is a problem in your data file.")
     except PermissionError:
         print("I can't open your data file.")
+    except ValueError:
+        print("There is a problem in your data file.")
