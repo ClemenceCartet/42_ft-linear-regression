@@ -2,6 +2,7 @@
 
 import json
 import sys
+
 import numpy as np
 
 from utils import set_factors, normalize, denormalize
@@ -49,10 +50,7 @@ if __name__ == "__main__":
             m_factors = set_factors([norm_value])
             price = model(m_factors, thetas)
             denorm_price = denormalize(price.item(), min_price, range_price)
-            print(
-                f"The estimated price for your mileage is \
-{denorm_price:.2f}"
-            )
+            print(f"The estimated price for your mileage is {denorm_price:.2f}")
         except ValueError:
             print("You must enter a valid mileage.")
             continue
