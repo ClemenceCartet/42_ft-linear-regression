@@ -1,5 +1,3 @@
-"""This program will train my model to find its parameters"""
-
 import json
 import sys
 
@@ -14,7 +12,9 @@ def cost_function(
     predictions: np.ndarray[np.float64], prices: np.ndarray[np.float64]
 ) -> float:
     """Sum of all errors divided by number of data"""
-    return sum(np.power(np.subtract(predictions, prices), 2)) / (2 * len(prices))
+    return sum(np.power(np.subtract(predictions, prices), 2)) / (
+        2 * len(prices)
+    )
 
 
 def find_gradients(
@@ -41,7 +41,7 @@ def gradient_descent_algorithm(
 def training(
     axes, learning_rate: float, nb_iterations: int
 ) -> tuple[np.ndarray[np.float64], np.ndarray[np.float64]]:
-    """This function will find the most optimized thetas to minimize cost function"""
+    """Training"""
     cost_history: list[float] = []
     factors = set_factors(norm_mileages)  # ndarray(m, 2)
     thetas = np.zeros((2, 1))  # ndarray(2, 1)
@@ -85,7 +85,9 @@ if __name__ == "__main__":
 
         min_mileage, range_mileage = find_scale(mileages)
         min_price, range_price = find_scale(prices)
-        norm_mileages = [normalize(m, min_mileage, range_mileage) for m in mileages]
+        norm_mileages = [
+            normalize(m, min_mileage, range_mileage) for m in mileages
+        ]
         norm_prices = [normalize(n, min_price, range_price) for n in prices]
 
         predictions, thetas = training(axes, learning_rate, nb_iterations)
